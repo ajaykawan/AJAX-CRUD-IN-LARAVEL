@@ -1,0 +1,207 @@
+@extends('layouts.app')
+@section('title','Home')
+@section('style')
+    <!-- DataTables -->
+    <link rel="stylesheet" type="text/css" href="{{asset('admin/plugins/datatables/dataTables.bootstrap.css')}}">
+    <link rel="stylesheet" type="text/css" href="{{asset('admin/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.min.css')}}">
+@endsection
+@section('content')
+    <!-- Button trigger modal -->
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal">
+       Add New
+    </button>
+
+    <!-- Modal -->
+    <div class="modal fade " id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" >
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <form id="TestInsert" method="post" enctype="multipart/form-data">
+                        {{csrf_field()}}
+                        @if(count($errors) > 0)
+                            <div class="alert alert-danger alert-dismissable fade in animated bounceInLeft">
+                                <button class="close" data-dismiss="alert"><i class="fa fa-close"></i></button>
+                                    @foreach($errors->all() as $er)
+                                    <i class="fa fa-warning"></i><span>{{$er}}</span><br/>
+                                    @endforeach
+                            </div>
+                        @endif
+                        <div class="form-group {{ $errors->has('title') ? ' has-error' : '' }}">
+                            <label for="title">Title</label>
+                            <input type="text" name="title" class="form-control" id="title">
+                        </div>
+                        <div class="form-group {{ $errors->has('description') ? ' has-error' : '' }}">
+                            <label for="description">Description</label>
+                            <textarea class="textarea form-control"  name="description" id="editor1"></textarea>
+                        </div>
+                        <div class="form-group {{ $errors->has('image') ? ' has-error' : '' }}">
+                            <label for="image">Upload Image</label>
+                            <input type="file" name="media" class="form-control" id="image">
+                        </div>
+                        <div class="form-group {{ $errors->has('status') ? ' has-error' : '' }}">
+                            <label for="status">Status</label>
+                            <input type="radio" name="status" value="1">Show
+                            <input type="radio" name="status" value="0">Hide
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <div class="box">
+                    <div class="box-header">
+                        <h3 class="box-title">Data Table With Full Features</h3>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body">
+                        <table id="example2" class="table table-bordered table-striped">
+                            <thead>
+                            <tr>
+                                <th width="1%"></th>
+                                <th>Title</th>
+                                <th>Descriptions</th>
+                                <th>Resources</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th width="1%"></th>
+                                    <th>Title</th>
+                                    <th>Descriptions</th>
+                                    <th>Resources</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <!-- /.box-body -->
+                </div>
+                <!-- /.box -->
+
+            </div>
+        </div>
+
+@endsection
+@section('script')
+    <!-- DataTables -->
+    <script src="{{asset('admin/plugins/datatables/jquery.dataTables.min.js')}}"></script>
+    <script src="{{asset('admin/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.all.min.js')}}"></script>
+    <script>
+        $(document).ready(function () {
+
+                //check if there is error in modal box or not
+        @if(count($errors)>0)
+           $('#myModal').modal('show');
+        @endif
+
+        //Invoking Datatables Plugin
+         var table = $('#example2').DataTable({
+            "paging": true,
+            "lengthChange": true,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": true
+         });
+
+        //Ajax Loading In Datatables
+        ajaxLoad();
+
+        // Integrating WYSIHTML Plugin in textarea
+        $(".textarea").wysihtml5();
+
+        //Ajax Inserting of Data 
+        $('#TestInsert').submit(function(e){
+            e.preventDefault();
+            $.post('{{route('test.add')}}',$('#TestInsert').serialize(),function(response){
+                if(response['message'] == 'Success'){
+                    $('#myModal').modal('hide');
+                    $('#TestInsert').trigger('reset');
+                    table.clear();
+                    ajaxLoad();
+                }
+                if(response['message'] == 'Error'){
+                    var insertForm = $("#TestInsert");
+                    var errors = response['data'];
+                    for (var key in errors) {
+
+                        var formInput = insertForm.find('[name="' + key + '"]');
+                        formInput.parent().addClass('has-error');
+                        formInput.popover({
+                            placement: "top",
+                            content: errors[key],
+                            template: '<div class="popover animated fadeIn popover-danger" role="tooltip"><div class="arrow" style=""></div><h3 class="popover-title"></h3><div class="popover-content"></div></div>',
+                            trigger: 'manual'
+                        }).on('keypress', function () {
+                            $(this).parent().removeClass('has-error');
+                            $(this).popover('destroy');
+                        }).popover('show');
+                    }
+                }
+            });
+        });
+
+        //dynamically delete
+       $('#example2').on('click','#ajaxDelete',function(){
+            var id = $('#ajaxDelete').attr('value');
+            var pop = confirm("are you really want to delete");
+            if(pop == true){
+                $.post('{{route('test.delete')}}',{
+                    "id":id,
+                    _token: "{{csrf_token()}}"
+                }, function(data){
+                    if(data['message'] == 'Success'){
+                        table.clear().draw();
+                        ajaxLoad();
+                        /*ajaxLoad();*/
+                    }else{
+                        alert(data['data']);
+                        table.clear().draw();
+                        ajaxLoad();
+                       /* ajaxLoad();*/
+                    }
+                });
+            }
+
+       });
+
+
+
+            //Dynamically Loading/Reading Contents from database
+            function ajaxLoad(){
+                $.get("{{route('tests.all')}}", function(response){
+                    var res = $.parseJSON(response['data']);
+                    for(var r =0; r<res.length; r++ )
+                    {
+                        var id = res[r]['id'];
+                        var butn = '<input type="button" id="ajaxDelete" value="'+id+'">';
+                        var result = [
+                            res[r]['id'],
+                            res[r]['title'],
+                            res[r]['description'],
+                            res[r]['image'],
+                            res[r]['status'],
+                            butn
+
+
+                        ];
+                        table.row.add(result).draw();
+                    }
+                });
+            }
+        });
+    </script>
+
+@endsection
